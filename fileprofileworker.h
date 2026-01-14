@@ -31,11 +31,8 @@ public:
     ~FileProfileWorker();
 
 public slots:
-    /// @brief Start loading and streaming data
-    void start();
-
-    /// @brief Stop data streaming
-    void stop();
+    void start();               ///< Start loading and streaming data
+    void stop();                ///< Stop data streaming
 
     /// @brief Set update interval in milliseconds
     /// @param ms Interval between data emissions
@@ -51,8 +48,7 @@ signals:
     void error(const QString& message);
 
 private slots:
-    /// @brief Timer timeout handler - emits next data chunk
-    void onTimeout();
+    void onTimeout();   ///<  Timer timeout handler - emits next data chunk
 
 private:
     QTimer* timer;                      ///< Periodic emission timer

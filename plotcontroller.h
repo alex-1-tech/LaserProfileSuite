@@ -10,6 +10,7 @@
 #include <QObject>
 #include <QVector>
 #include <QPointF>
+#include <QSet>
 #include "qcustomplot.h"
 #include "segmentinfo.h"
 
@@ -33,8 +34,11 @@ public:
 
     void updateProfile(const QVector<ProfilePoint>& profile);  ///< Update plot with new profile data
     void setDisplayMode(int mode);  ///< Set display mode (0 - points, 1 - lines)
-    void highlightSegment(const SegmentInfo& segment);  ///< Highlight specific segment
-    void highlightLine(const SegmentInfo& line);  ///< Highlight specific line
+
+    // Multiple highlight methods
+    void highlightSegments(const QVector<SegmentInfo>& segments);  ///< Highlight multiple segments (single color)
+    void highlightLines(const QVector<SegmentInfo>& lines);        ///< Highlight multiple lines (single color)
+
     void showDistances(const QVector<DistanceInfo>& distances);  ///< Display distance measurements
     void clearHighlight();  ///< Clear all highlights
     void clearDistances();  ///< Clear distance displays
@@ -85,14 +89,15 @@ private:
     void updateMainGraphStyle();  ///< Update main graph style
     void updateInvalidGraphStyle();  ///< Update invalid graph style
     void updateSegmentGraphStyle();  ///< Update segment highlight style
-    void updateLineGraphsStyle();  ///< Update line graphs style
+    void updateLineGraphStyle();     ///< Update line highlight style
     void updateDistanceLinesStyle();  ///< Update distance lines style
 
-    void updateSegmentDisplay(const SegmentInfo& segment);  ///< Display segment highlight
-    QString formatSegmentLabel(const SegmentInfo& segment) const;  ///< Format segment label text
+    // Helper methods for graphs
+    void createSegmentGraphs(const QVector<SegmentInfo>& segments);  ///< Create graphs for segments
+    void createLineGraphs(const QVector<SegmentInfo>& lines);        ///< Create graphs for lines
+    void removeAllSegmentGraphs();  ///< Remove all segment graphs
+    void removeAllLineGraphs();     ///< Remove all line graphs
 
-    void removeHighlightedLineGraph();  ///< Remove highlighted line graph
-    void createHighlightedLineGraph(const SegmentInfo& line);  ///< Create highlighted line graph
     GraphData prepareLineData(const SegmentInfo& line);  ///< Prepare line data for display
 
     void createDistanceLine(const DistanceInfo& dist);  ///< Create distance line element
@@ -101,7 +106,6 @@ private:
     void hideAllHighlights();  ///< Hide all highlight elements
     void clearDistanceLines();  ///< Clear distance lines
     void clearDistanceLabels();  ///< Clear distance labels
-    void clearLineGraphs();  ///< Clear line graphs
 
 private:
     QCustomPlot* m_plot;  ///< Pointer to the plot widget (non-owning)
@@ -111,12 +115,9 @@ private:
     QCPGraph* m_mainGraph;      ///< Main graph for valid points
     QCPGraph* m_invalidGraph;   ///< Graph for invalid points
 
-    QCPGraph* m_segmentGraph;   ///< Graph for highlighted segment
-    QCPItemLine* m_segmentLine; ///< Segment approximation line
-    QCPItemText* m_segmentLabel;///< Segment label
-
-    QVector<QCPGraph*> m_lineGraphs;          ///< All line graphs
-    QCPGraph* m_highlightedLineGraph;         ///< Currently highlighted line
+    // Multiple highlight support (single color for all)
+    QVector<QCPGraph*> m_segmentGraphs;         ///< Graphs for highlighted segments
+    QVector<QCPGraph*> m_lineGraphs;            ///< Graphs for highlighted lines
 
     QVector<QCPItemLine*> m_distanceLines;    ///< Distance measurement lines
     QVector<QCPItemText*> m_distanceLabels;   ///< Distance labels

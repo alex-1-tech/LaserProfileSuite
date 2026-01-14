@@ -8,16 +8,11 @@ PlotController::PlotController(QCustomPlot* plot, QObject* parent)
     : QObject(parent)
     , m_plot(plot)
     , m_displayMode(DisplayMode::Lines)
-    , m_segmentGraph(nullptr)
-    , m_segmentLine(nullptr)
-    , m_segmentLabel(nullptr)
     , m_mainGraph(nullptr)
     , m_invalidGraph(nullptr)
-    , m_highlightedLineGraph(nullptr)
 {
     Q_ASSERT(plot != nullptr);
     setupPlot();
-    initializeHighlightItems();
 }
 
 PlotController::~PlotController()
@@ -29,6 +24,8 @@ void PlotController::cleanup()
 {
     // Удаляем все созданные элементы
     clearDistances();
+    removeAllSegmentGraphs();
+    removeAllLineGraphs();
 
     if (m_mainGraph) {
         m_plot->removeGraph(m_mainGraph);
@@ -39,47 +36,6 @@ void PlotController::cleanup()
         m_plot->removeGraph(m_invalidGraph);
         m_invalidGraph = nullptr;
     }
-
-    if (m_highlightedLineGraph) {
-        m_plot->removeGraph(m_highlightedLineGraph);
-        m_highlightedLineGraph = nullptr;
-    }
-
-    if (m_segmentGraph) {
-        m_plot->removeGraph(m_segmentGraph);
-        m_segmentGraph = nullptr;
-    }
-
-    if (m_segmentLine) {
-        m_plot->removeItem(m_segmentLine);
-        m_segmentLine = nullptr;
-    }
-
-    if (m_segmentLabel) {
-        m_plot->removeItem(m_segmentLabel);
-        m_segmentLabel = nullptr;
-    }
-}
-
-void PlotController::initializeHighlightItems()
-{
-    // Создаем график для выделения сегментов
-    m_segmentGraph = m_plot->addGraph();
-    m_segmentGraph->setVisible(false);
-    m_segmentGraph->setName("highlighted_segment");
-
-    // Создаем элементы для выделения
-    m_segmentLine = new QCPItemLine(m_plot);
-    m_segmentLine->setPen(QPen(Qt::green, 2, Qt::DashLine));
-    m_segmentLine->setVisible(false);
-
-    m_segmentLabel = new QCPItemText(m_plot);
-    m_segmentLabel->setPositionAlignment(Qt::AlignTop | Qt::AlignHCenter);
-    m_segmentLabel->setTextAlignment(Qt::AlignCenter);
-    m_segmentLabel->setFont(QFont("Arial", 10, QFont::Bold));
-    m_segmentLabel->setColor(Qt::darkBlue);
-    m_segmentLabel->setPadding(QMargins(5, 5, 5, 5));
-    m_segmentLabel->setVisible(false);
 }
 
 void PlotController::setupPlot()
@@ -111,6 +67,8 @@ void PlotController::updateProfile(const QVector<ProfilePoint>& profile)
     }
 
     clearDistances();
+    removeAllSegmentGraphs();
+    removeAllLineGraphs();
 
     ProfileData data = splitProfileData(profile);
     updateMainGraph(data.validPoints);
@@ -186,7 +144,7 @@ void PlotController::updateGraphStyle()
     updateMainGraphStyle();
     updateInvalidGraphStyle();
     updateSegmentGraphStyle();
-    updateLineGraphsStyle();
+    updateLineGraphStyle();
     updateDistanceLinesStyle();
 }
 
@@ -218,25 +176,24 @@ void PlotController::updateInvalidGraphStyle()
 
 void PlotController::updateSegmentGraphStyle()
 {
-    if (m_segmentGraph) {
-        m_segmentGraph->setLineStyle(QCPGraph::lsLine);
-        m_segmentGraph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssDisc, Qt::red, 6));
-        m_segmentGraph->setPen(QPen(Qt::red, 3));
+    // Все сегменты одного цвета - желтый
+    for (QCPGraph* segmentGraph : m_segmentGraphs) {
+        if (segmentGraph) {
+            segmentGraph->setLineStyle(QCPGraph::lsLine);
+            segmentGraph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssDisc, Qt::yellow, 6));
+            segmentGraph->setPen(QPen(Qt::yellow, 2));
+        }
     }
 }
 
-void PlotController::updateLineGraphsStyle()
+void PlotController::updateLineGraphStyle()
 {
+    // Все линии одного цвета - желтый
     for (QCPGraph* lineGraph : m_lineGraphs) {
         if (lineGraph) {
             lineGraph->setLineStyle(QCPGraph::lsLine);
-            lineGraph->setPen(QPen(Qt::green, 2));
+            lineGraph->setPen(QPen(Qt::yellow, 3));
         }
-    }
-
-    if (m_highlightedLineGraph) {
-        m_highlightedLineGraph->setLineStyle(QCPGraph::lsLine);
-        m_highlightedLineGraph->setPen(QPen(Qt::yellow, 4));
     }
 }
 
@@ -249,73 +206,47 @@ void PlotController::updateDistanceLinesStyle()
     }
 }
 
-void PlotController::highlightSegment(const SegmentInfo& segment)
+void PlotController::highlightSegments(const QVector<SegmentInfo>& segments)
 {
-    hideAllHighlights();
-
-    if (!m_segmentGraph) return;
-
-    QVector<double> segX = QVector<double>() << segment.startX << segment.endX;
-    QVector<double> segZ = QVector<double>() << segment.startZ << segment.endZ;
-    m_segmentGraph->setData(segX, segZ);
-    m_segmentGraph->setVisible(true);
-
-    updateSegmentDisplay(segment);
+    removeAllSegmentGraphs();
+    createSegmentGraphs(segments);
+    updateSegmentGraphStyle();
     m_plot->replot();
 }
 
-void PlotController::updateSegmentDisplay(const SegmentInfo& segment)
+void PlotController::createSegmentGraphs(const QVector<SegmentInfo>& segments)
 {
-    if (m_segmentLine) {
-        m_segmentLine->start->setCoords(segment.startX, segment.startZ);
-        m_segmentLine->end->setCoords(segment.endX, segment.endZ);
-        m_segmentLine->setVisible(true);
-    }
+    for (const SegmentInfo& segment : segments) {
+        QVector<double> segX = QVector<double>() << segment.startX << segment.endX;
+        QVector<double> segZ = QVector<double>() << segment.startZ << segment.endZ;
 
-    if (m_segmentLabel) {
-        double midX = (segment.startX + segment.endX) / 2;
-        double midZ = (segment.startZ + segment.endZ) / 2;
+        QCPGraph* segmentGraph = m_plot->addGraph();
+        segmentGraph->setData(segX, segZ);
+        segmentGraph->setVisible(true);
 
-        m_segmentLabel->setText(formatSegmentLabel(segment));
-        m_segmentLabel->position->setCoords(midX, midZ);
-        m_segmentLabel->setVisible(true);
+        m_segmentGraphs.append(segmentGraph);
     }
 }
 
-QString PlotController::formatSegmentLabel(const SegmentInfo& segment) const
+void PlotController::highlightLines(const QVector<SegmentInfo>& lines)
 {
-    return QString("Сегмент %1\n%2 мм\n%3°")
-        .arg(segment.id)
-        .arg(QString::number(segment.length, 'f', 2))
-        .arg(QString::number(segment.angle, 'f', 1));
-}
-
-void PlotController::highlightLine(const SegmentInfo& line)
-{
-    hideAllHighlights();
-
-    removeHighlightedLineGraph();
-    createHighlightedLineGraph(line);
+    removeAllLineGraphs();
+    createLineGraphs(lines);
+    updateLineGraphStyle();
     m_plot->replot();
 }
 
-void PlotController::removeHighlightedLineGraph()
+void PlotController::createLineGraphs(const QVector<SegmentInfo>& lines)
 {
-    if (m_highlightedLineGraph) {
-        m_plot->removeGraph(m_highlightedLineGraph);
-        m_highlightedLineGraph = nullptr;
+    for (const SegmentInfo& line : lines) {
+        QCPGraph* lineGraph = m_plot->addGraph();
+
+        GraphData lineData = prepareLineData(line);
+        lineGraph->setData(lineData.x, lineData.z);
+        lineGraph->setVisible(true);
+
+        m_lineGraphs.append(lineGraph);
     }
-}
-
-void PlotController::createHighlightedLineGraph(const SegmentInfo& line)
-{
-    m_highlightedLineGraph = m_plot->addGraph();
-    m_highlightedLineGraph->setName("highlighted_line");
-
-    GraphData lineData = prepareLineData(line);
-    m_highlightedLineGraph->setData(lineData.x, lineData.z);
-    m_highlightedLineGraph->setPen(QPen(Qt::yellow, 4));
-    m_highlightedLineGraph->setLineStyle(QCPGraph::lsLine);
 }
 
 PlotController::GraphData PlotController::prepareLineData(const SegmentInfo& line)
@@ -336,6 +267,26 @@ PlotController::GraphData PlotController::prepareLineData(const SegmentInfo& lin
     }
 
     return data;
+}
+
+void PlotController::removeAllSegmentGraphs()
+{
+    for (QCPGraph* segmentGraph : m_segmentGraphs) {
+        if (segmentGraph) {
+            m_plot->removeGraph(segmentGraph);
+        }
+    }
+    m_segmentGraphs.clear();
+}
+
+void PlotController::removeAllLineGraphs()
+{
+    for (QCPGraph* lineGraph : m_lineGraphs) {
+        if (lineGraph) {
+            m_plot->removeGraph(lineGraph);
+        }
+    }
+    m_lineGraphs.clear();
 }
 
 void PlotController::showDistances(const QVector<DistanceInfo>& distances)
@@ -387,10 +338,8 @@ void PlotController::clearHighlight()
 
 void PlotController::hideAllHighlights()
 {
-    if (m_segmentGraph) m_segmentGraph->setVisible(false);
-    if (m_segmentLine) m_segmentLine->setVisible(false);
-    if (m_segmentLabel) m_segmentLabel->setVisible(false);
-    if (m_highlightedLineGraph) m_highlightedLineGraph->setVisible(false);
+    removeAllSegmentGraphs();
+    removeAllLineGraphs();
 }
 
 void PlotController::clearDistances()
@@ -421,14 +370,4 @@ void PlotController::clearDistanceLabels()
         }
     }
     m_distanceLabels.clear();
-}
-
-void PlotController::clearLineGraphs()
-{
-    for (QCPGraph* lineGraph : m_lineGraphs) {
-        if (lineGraph) {
-            m_plot->removeGraph(lineGraph);
-        }
-    }
-    m_lineGraphs.clear();
 }

@@ -1,6 +1,7 @@
 #include "tablecontroller.h"
 #include <QHeaderView>
 #include <QDebug>
+#include <QTableWidgetSelectionRange>
 
 TableController::TableController(QTableWidget* segmentsTable,
                                  QTableWidget* longLinesTable,
@@ -8,8 +9,6 @@ TableController::TableController(QTableWidget* segmentsTable,
     : QObject(parent)
     , m_segmentsTable(segmentsTable)
     , m_longLinesTable(longLinesTable)
-    , m_currentSegments()
-    , m_currentLongLines()
 {
     // Setup segments table
     m_segmentsTable->setColumnCount(8);
@@ -20,6 +19,8 @@ TableController::TableController(QTableWidget* segmentsTable,
     m_segmentsTable->verticalHeader()->setVisible(false);
     m_segmentsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_segmentsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // Всегда включен множественный выбор через Ctrl
+    m_segmentsTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     // Setup long lines table
     m_longLinesTable->setColumnCount(10);
@@ -31,33 +32,78 @@ TableController::TableController(QTableWidget* segmentsTable,
     m_longLinesTable->verticalHeader()->setVisible(false);
     m_longLinesTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_longLinesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // Всегда включен множественный выбор через Ctrl
+    m_longLinesTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     // Connect table signals
-    connect(m_segmentsTable, &QTableWidget::cellClicked,
-            this, [this](int row, int column) {
-                Q_UNUSED(column);
-                if (row >= 0 && row < m_currentSegments.size()) {
-                    emit segmentSelected(m_currentSegments[row].id);
-                }
-            });
+    connect(m_segmentsTable->selectionModel(), &QItemSelectionModel::selectionChanged,
+            this, &TableController::onSegmentsTableSelectionChanged);
 
-    connect(m_segmentsTable, &QTableWidget::cellDoubleClicked,
-            this, [this](int row, int column) {
-                Q_UNUSED(column);
-                if (row >= 0 && row < m_currentSegments.size()) {
-                    emit segmentDoubleClicked(m_currentSegments[row].id);
-                }
-            });
-
-    connect(m_longLinesTable, &QTableWidget::cellClicked,
-            this, [this](int row, int column) {
-                Q_UNUSED(column);
-                if (row >= 0 && row < m_currentLongLines.size()) {
-                    emit longLineSelected(m_currentLongLines[row].id);
-                }
-            });
+    connect(m_longLinesTable->selectionModel(), &QItemSelectionModel::selectionChanged,
+            this, &TableController::onLongLinesTableSelectionChanged);
 }
 
+void TableController::onSegmentsTableSelectionChanged()
+{
+    QSet<int> selectedIds;
+
+    QModelIndexList selectedIndexes = m_segmentsTable->selectionModel()->selectedRows();
+    for (const QModelIndex& index : selectedIndexes) {
+        int row = index.row();
+        if (row >= 0 && row < m_currentSegments.size()) {
+            selectedIds.insert(m_currentSegments[row].id);
+        }
+    }
+
+    emit segmentsSelected(selectedIds);
+}
+
+void TableController::onLongLinesTableSelectionChanged()
+{
+    QSet<int> selectedIds;
+
+    QModelIndexList selectedIndexes = m_longLinesTable->selectionModel()->selectedRows();
+    for (const QModelIndex& index : selectedIndexes) {
+        int row = index.row();
+        if (row >= 0 && row < m_currentLongLines.size()) {
+            selectedIds.insert(m_currentLongLines[row].id);
+        }
+    }
+
+    emit longLinesSelected(selectedIds);
+}
+
+QVector<SegmentInfo> TableController::getSelectedSegments() const
+{
+    QVector<SegmentInfo> selected;
+
+    QModelIndexList selectedIndexes = m_segmentsTable->selectionModel()->selectedRows();
+    for (const QModelIndex& index : selectedIndexes) {
+        int row = index.row();
+        if (row >= 0 && row < m_currentSegments.size()) {
+            selected.append(m_currentSegments[row]);
+        }
+    }
+
+    return selected;
+}
+
+QVector<SegmentInfo> TableController::getSelectedLongLines() const
+{
+    QVector<SegmentInfo> selected;
+
+    QModelIndexList selectedIndexes = m_longLinesTable->selectionModel()->selectedRows();
+    for (const QModelIndex& index : selectedIndexes) {
+        int row = index.row();
+        if (row >= 0 && row < m_currentLongLines.size()) {
+            selected.append(m_currentLongLines[row]);
+        }
+    }
+
+    return selected;
+}
+
+// Остальной код без изменений...
 void TableController::showResultsTable(const GeometryResult& result)
 {
     m_currentSegments = result.segments;

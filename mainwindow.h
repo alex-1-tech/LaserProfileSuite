@@ -11,6 +11,7 @@
 #include <QFutureWatcher>
 #include <QThread>
 #include <QDoubleSpinBox>
+#include <QCheckBox>
 
 #include "segmentinfo.h"
 #include "plotcontroller.h"
@@ -59,11 +60,6 @@ private slots:
     void onClearSelection();                                        ///< Clear all selections
     void onLaserError(const QString& message);                      ///< Handle laser/worker errors
     void onShowParamsDialog();                                      ///< Show parameters configuration dialog
-
-    // Table controller slots
-    void onSegmentSelected(int row, int column);                    ///< Handle segment table selection
-    void onLongLineSelected(int row, int column);                   ///< Handle line table selection
-    void onSegmentDoubleClicked(int row, int column);               ///< Handle segment double-click
 private:
     // Initialization methods
     void createUI();                                        ///< Create all UI widgets and layouts

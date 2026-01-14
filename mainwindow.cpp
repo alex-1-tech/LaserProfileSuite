@@ -214,29 +214,25 @@ void MainWindow::createConnections()
             this, &MainWindow::onExportProfile);
 
     // Table controller connections
-    connect(tableController, &TableController::segmentSelected,
-            this, [this](int segmentId) {
-                auto segment = tableController->getSegmentAtRow(
-                    resultsTable->currentRow());
-                plotController->highlightSegment(segment);
+    connect(tableController, &TableController::segmentsSelected,
+            this, [this](const QSet<int>& segmentIds) {
+                if (segmentIds.isEmpty()) {
+                    plotController->clearHighlight();
+                } else {
+                    QVector<SegmentInfo> selectedSegments = tableController->getSelectedSegments();
+                    plotController->highlightSegments(selectedSegments);
+                }
             });
 
-    connect(tableController, &TableController::longLineSelected,
-            this, [this](int lineId) {
-                auto line = tableController->getLongLineAtRow(
-                    longLinesTable->currentRow());
-                plotController->highlightLine(line);
+    connect(tableController, &TableController::longLinesSelected,
+            this, [this](const QSet<int>& lineIds) {
+                if (lineIds.isEmpty()) {
+                    plotController->clearHighlight();
+                } else {
+                    QVector<SegmentInfo> selectedLines = tableController->getSelectedLongLines();
+                    plotController->highlightLines(selectedLines);
+                }
             });
-
-    connect(tableController, &TableController::segmentDoubleClicked,
-            this, [this](int segmentId) {
-                selectedSegmentId = segmentId;
-                plotController->highlightSegment(
-                    tableController->getSegmentAtRow(resultsTable->currentRow()));
-                clearSelectionButton->setEnabled(true);
-                statusLabel->setText(QString("Selected segment %1").arg(selectedSegmentId));
-            });
-
 
     // Utility connections
     connect(clearSelectionButton, &QPushButton::clicked,
@@ -590,14 +586,6 @@ void MainWindow::onAnalysisFinished()
         plotController->clearHighlight();
         plotController->clearDistances();
 
-        for (const SegmentInfo& line : result.longLines) {
-            plotController->highlightLine(line);
-        }
-
-        if (!result.segments.isEmpty()) {
-            resultsTable->selectRow(0);
-            plotController->highlightSegment(result.segments.first());
-        }
     } catch (const std::exception& e) {
         statusLabel->setText(QString("Analysis error: %1").arg(e.what()));
         QMessageBox::critical(this, "Error",
@@ -621,42 +609,6 @@ void MainWindow::onContinueUpdating()
     statusLabel->setText("Real-time updating");
 }
 
-void MainWindow::onSegmentSelected(int row, int column)
-{
-    Q_UNUSED(column);
-
-    if (row >= 0 && row < currentResult.segments.size()) {
-        plotController->highlightSegment(currentResult.segments[row]);
-    } else {
-        plotController->clearHighlight();
-    }
-}
-
-void MainWindow::onLongLineSelected(int row, int column)
-{
-    Q_UNUSED(column);
-
-    if (row >= 0 && row < currentResult.longLines.size()) {
-        plotController->highlightLine(currentResult.longLines[row]);
-    } else {
-        plotController->clearHighlight();
-    }
-}
-
-void MainWindow::onSegmentDoubleClicked(int row, int column)
-{
-    Q_UNUSED(column);
-
-    if (row >= 0 && row < currentResult.segments.size()) {
-        selectedSegmentId = currentResult.segments[row].id;
-
-        plotController->highlightSegment(currentResult.segments[row]);
-
-        clearSelectionButton->setEnabled(true);
-
-        statusLabel->setText(QString("Selected segment %1").arg(selectedSegmentId));
-    }
-}
 
 RANSACParams MainWindow::getRANSACParams() const {
     return ransacParams;

@@ -9,6 +9,7 @@
 
 #include <QObject>
 #include <QTableWidget>
+#include <QSet>
 #include "segmentinfo.h"
 
 /**
@@ -79,24 +80,34 @@ public:
      */
     SegmentInfo getLongLineAtRow(int row) const;
 
+    /**
+     * @brief Get all selected segments
+     * @return Vector of selected SegmentInfo
+     */
+    QVector<SegmentInfo> getSelectedSegments() const;
+
+    /**
+     * @brief Get all selected long lines
+     * @return Vector of selected SegmentInfo for long lines
+     */
+    QVector<SegmentInfo> getSelectedLongLines() const;
+
 signals:
     /**
-     * @brief Emitted when segment is selected in table
-     * @param segmentId ID of selected segment
+     * @brief Emitted when segment selection changes
+     * @param segmentIds Set of selected segment IDs
      */
-    void segmentSelected(int segmentId);
+    void segmentsSelected(const QSet<int>& segmentIds);
 
     /**
-     * @brief Emitted when long line is selected in table
-     * @param lineId ID of selected long line
+     * @brief Emitted when long line selection changes
+     * @param lineIds Set of selected long line IDs
      */
-    void longLineSelected(int lineId);
+    void longLinesSelected(const QSet<int>& lineIds);
 
-    /**
-     * @brief Emitted when segment is double-clicked in table
-     * @param segmentId ID of double-clicked segment
-     */
-    void segmentDoubleClicked(int segmentId);
+private slots:
+    void onSegmentsTableSelectionChanged();
+    void onLongLinesTableSelectionChanged();
 
 private:
     QTableWidget* m_segmentsTable;      ///< Table for individual segments
